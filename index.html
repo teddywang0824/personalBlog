@@ -31,7 +31,7 @@
         <h2 class="hero-slogan">
             <div class="slogan-group">
                 <span class="slogan-part" style="--delay: 0.0s">是劇中過客 </span>
-                <span class="slogan-part" style="--delay: 1.5s">也是書裡路人 </span>
+                <span class="slogan-part" style="--delay: 1.5s">亦是書裡路人 </span>
                 <span class="slogan-part" style="--delay: 3.0s">興來提筆意隨心</span>
             </div>
             <div class="slogan-group">
@@ -53,11 +53,35 @@
         <h3 class="tag-cloud-title"><span class="title-accent">|</span> 標籤</h3>
         <div class="tag-cloud">
                         <a href="./tag/about-me.html" class="tag-item">about-me</a>
+                        <a href="./tag/debug.html" class="tag-item">debug</a>
+                        <a href="./tag/vitis-ai.html" class="tag-item">vitis-ai</a>
         </div>
     </div>
 
     <div class="post-list">
-        <article class="post-card  reveal-on-scroll" data-category="Inspiration">
+        <article class="post-card  reveal-on-scroll" data-category="Programming">
+            <div class="post-image">
+                <div class="placeholder-image placeholder-bg-programming"></div>
+            </div>
+            <div class="post-content">
+                <div class="post-meta">
+                    <span class="date">2026-01-05</span>
+                    <span class="category category-programming">Programming</span>
+                </div>
+                <h3 class="post-title"><a href="./vitis-ai cuda Multi-download failed.html">Vitis-AI cuda-gpu Debug 過程記錄</a></h3>
+                <div class="post-summary">
+                    紀錄 Vitis-ai cuda-gpu 的 debug 經歷，作為筆記之外也提供參考。
+                </div>
+                
+                <div class="article-tags">
+                    <a href="./tag/debug.html" class="tag">#debug</a>
+                    <a href="./tag/vitis-ai.html" class="tag">#vitis-ai</a>
+                </div>
+                
+                <a href="./vitis-ai cuda Multi-download failed.html" class="read-more">閱讀全文</a>
+            </div>
+        </article>
+        <article class="post-card reverse reveal-on-scroll" data-category="Inspiration">
             <div class="post-image">
                 <div class="placeholder-image placeholder-bg-default"></div>
             </div>
@@ -78,7 +102,7 @@
                 <a href="./about_me.html" class="read-more">閱讀全文</a>
             </div>
         </article>
-        <article class="post-card reverse reveal-on-scroll" data-category="Inspiration">
+        <article class="post-card  reveal-on-scroll" data-category="Inspiration">
             <div class="post-image">
                 <div class="placeholder-image placeholder-bg-default"></div>
             </div>
@@ -96,7 +120,7 @@
                 <a href="./dummy-post-1.html" class="read-more">閱讀全文</a>
             </div>
         </article>
-        <article class="post-card  reveal-on-scroll" data-category="Programming">
+        <article class="post-card reverse reveal-on-scroll" data-category="Programming">
             <div class="post-image">
                 <div class="placeholder-image placeholder-bg-programming"></div>
             </div>
@@ -173,6 +197,54 @@
                         bgDiv.style.backgroundImage = `url(${bgUrl})`;
                     }
                 }
+            });
+
+            // Copy Code Button Logic
+            document.querySelectorAll('.highlight').forEach(block => {
+                // Determine the code content to copy
+                // If line numbers are present (table layout)
+                let codeText = '';
+                const codeTd = block.querySelector('td.code');
+                if (codeTd) {
+                    // It's a table with line numbers, copy from the code cell
+                     // Use innerText but filtering out extra newlines might be needed depending on browser
+                    // Actually, getting the raw text from <pre> inside td.code is safest
+                    const pre = codeTd.querySelector('pre');
+                    if (pre) codeText = pre.innerText;
+                } else {
+                    // No line numbers, just a pre block
+                    codeText = block.innerText;
+                }
+
+                if (!codeText) return; // Skip if empty
+
+                // Create Button
+                const button = document.createElement('button');
+                button.className = 'copy-code-btn';
+                button.innerHTML = '<i class="far fa-copy"></i>'; // FontAwesome icon
+                button.title = 'Copy to clipboard';
+
+                // Add Button to Block
+                // We need the block to be relative positioned
+                block.style.position = 'relative';
+                block.appendChild(button);
+
+                // Click Event
+                button.addEventListener('click', () => {
+                    navigator.clipboard.writeText(codeText).then(() => {
+                        // Success Feedback
+                        const originalHtml = button.innerHTML;
+                        button.innerHTML = '<i class="fas fa-check"></i>';
+                        button.classList.add('copied');
+                        setTimeout(() => {
+                            button.innerHTML = originalHtml;
+                            button.classList.remove('copied');
+                        }, 2000);
+                    }).catch(err => {
+                        console.error('Failed to copy:', err);
+                        button.innerHTML = 'Error';
+                    });
+                });
             });
         });
     </script>

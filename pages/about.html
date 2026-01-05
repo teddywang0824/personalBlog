@@ -114,6 +114,54 @@
                     }
                 }
             });
+
+            // Copy Code Button Logic
+            document.querySelectorAll('.highlight').forEach(block => {
+                // Determine the code content to copy
+                // If line numbers are present (table layout)
+                let codeText = '';
+                const codeTd = block.querySelector('td.code');
+                if (codeTd) {
+                    // It's a table with line numbers, copy from the code cell
+                     // Use innerText but filtering out extra newlines might be needed depending on browser
+                    // Actually, getting the raw text from <pre> inside td.code is safest
+                    const pre = codeTd.querySelector('pre');
+                    if (pre) codeText = pre.innerText;
+                } else {
+                    // No line numbers, just a pre block
+                    codeText = block.innerText;
+                }
+
+                if (!codeText) return; // Skip if empty
+
+                // Create Button
+                const button = document.createElement('button');
+                button.className = 'copy-code-btn';
+                button.innerHTML = '<i class="far fa-copy"></i>'; // FontAwesome icon
+                button.title = 'Copy to clipboard';
+
+                // Add Button to Block
+                // We need the block to be relative positioned
+                block.style.position = 'relative';
+                block.appendChild(button);
+
+                // Click Event
+                button.addEventListener('click', () => {
+                    navigator.clipboard.writeText(codeText).then(() => {
+                        // Success Feedback
+                        const originalHtml = button.innerHTML;
+                        button.innerHTML = '<i class="fas fa-check"></i>';
+                        button.classList.add('copied');
+                        setTimeout(() => {
+                            button.innerHTML = originalHtml;
+                            button.classList.remove('copied');
+                        }, 2000);
+                    }).catch(err => {
+                        console.error('Failed to copy:', err);
+                        button.innerHTML = 'Error';
+                    });
+                });
+            });
         });
     </script>
 </body>

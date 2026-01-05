@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vitis-AI cuda-gpu Debug 過程記錄 - Nobody's Blog</title>
+    <link rel="stylesheet" href="./theme/css/style.css?v=1.1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500&family=Noto+Serif+TC:wght@300;400;600&family=Dancing+Script:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+
+<body>
+    <header class="site-header">
+        <div class="header-inner">
+            <h1 class="site-title"><a href="./">Nobody's Blog</a></h1>
+            <nav class="site-nav">
+                <ul>
+                    <li><a href="./">首頁</a></li>
+                    <li><a href="./category/inspiration.html">生活與靈感</a></li>
+                    <li><a href="./category/programming.html">程式與科技</a></li>
+                    <li><a href="./pages/about.html">關於我</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+
+    <main class="site-main">
+<article class="single-post">
+    <header class="post-header">
+        <div class="post-category">
+            <a href="./category/programming.html">Programming</a>
+        </div>
+        <h1 class="post-title">Vitis-AI cuda-gpu Debug 過程記錄</h1>
+        <div class="post-meta">
+            <span class="date">Jan 05, 2026</span>
+            <span class="meta-separator">·</span>
+            <span class="read-time">☕️ 4 min read</span>
+        </div>
+    </header>
+
+
+    <div class="post-body">
+        <h1>Vitis-AI cuda-gpu 修正</h1>
+<p>主要是在實行 docker_build 腳本時遇到<code>Multi-download failed</code>的錯誤，經過爬文之後發現不知道是conda還是mamba的版本過舊導致的錯誤?
+在 AMD 的論壇發現這個錯誤也有許多人反映，但是上面提供的解決辦法大多都是額外拉非官方的 docker container。</p>
+<p>我採用的策略是事先下載要求的壓縮檔，並配合 <strong>Conda-Forge</strong> 安裝 Python 套件(避開官方)。</p>
+<p>( 本篇主要是專注在 debug 的部分，至於詳細安裝過程筆者參考 <a href="https://www.youtube.com/watch?v=5JM5hLVyfyU&amp;t=1440s">此 youtube 影片</a> )</p>
+<h3>配置</h3>
+<p>筆者是在 gcp 上租借 VM 來使用，配置如下 : </p>
+<ul>
+<li>
+<p>區域 : us-central1(愛荷華州)</p>
+</li>
+<li>
+<p>GPU 類型 : NVIDIA T4，1 顆</p>
+</li>
+<li>
+<p>機器為 N1 系列，n1-standard-8 (8 vCPU，四核心，30 G 記憶體)</p>
+</li>
+<li>
+<p>作業系統 : Ubuntu Accelerator Optimized，版本為 22.04 LTS with 580 nvidia version</p>
+</li>
+<li>
+<p>100 G disk</p>
+</li>
+</ul>
+<hr>
+<h3>步驟 1：手動準備關鍵檔案</h3>
+<p>與其讓 Docker 在不穩定的網路中下載，不如先手動下載好並掛載進去。
+<img alt="image" src="./blog-image/20260105.png">
+在 docker_build 這個腳本當中，就可以發現運行時抓取的位置，所以這邊可以直接對 conda-channel 做下載的動作(wget)。</p>
+<p><strong>下載 Vitis-AI Conda Channel</strong></p>
+<ul>
+<li>
+<p><strong>檔案名稱</strong>：<code>conda-channel-3.5.0.tar.gz</code></p>
+</li>
+<li>
+<p><strong>下載位置</strong>：https://www.xilinx.com/bin/public/openDownload?filename=conda-channel-3.5.0.tar.gz</p>
+</li>
+<li>
+<p><strong>放置路徑</strong>：<code>~/Vitis-AI/docker/conda/conda-channel.tar.gz</code> (請改名為此，方便腳本讀取)</p>
+</li>
+</ul>
+<p>完整指令為 : </p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span></pre></div></td><td class="code"><div><pre><span></span><code>wget<span class="w"> </span>-O<span class="w"> </span>conda-channel-3.5.0.tar.gz<span class="w"> </span>https://www.xilinx.com/bin/public/openDownload?filename<span class="o">=</span>conda-channel-3.5.0.tar.gz
+
+mv<span class="w"> </span>conda-channel-3.5.0.tar.gz<span class="w"> </span>~/Vitis-AI/docker/conda/conda-channel.tar.gz
+</code></pre></div></td></tr></table></div>
+
+<p><strong>然後修改 <code>docker/common/install_torch.sh</code></strong></p>
+<p>找到原本 </p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span>
+<span class="normal">7</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">if</span><span class="w"> </span><span class="o">[[</span><span class="w"> </span><span class="si">${</span><span class="nv">VAI_CONDA_CHANNEL</span><span class="si">}</span><span class="w"> </span><span class="o">=</span>~<span class="w"> </span>.*<span class="s2">&quot;tar.gz&quot;</span><span class="w"> </span><span class="o">]]</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<span class="w">   </span><span class="nb">cd</span><span class="w"> </span>/scratch/<span class="p">;</span>
+
+<span class="w">   </span>wget<span class="w"> </span>-O<span class="w"> </span>conda-channel.tar.gz<span class="w"> </span>--progress<span class="o">=</span>dot:mega<span class="w"> </span><span class="si">${</span><span class="nv">VAI_CONDA_CHANNEL</span><span class="si">}</span><span class="p">;</span>
+<span class="w">   </span>tar<span class="w"> </span>-xzvf<span class="w"> </span>conda-channel.tar.gz<span class="p">;</span>
+<span class="w">   </span><span class="nb">export</span><span class="w"> </span><span class="nv">VAI_CONDA_CHANNEL</span><span class="o">=</span>file:///scratch/conda-channel<span class="p">;</span>
+<span class="k">fi</span>
+</code></pre></div></td></tr></table></div>
+
+<p>的地方，換上：</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">if</span><span class="w"> </span><span class="o">[[</span><span class="w"> </span><span class="si">${</span><span class="nv">VAI_CONDA_CHANNEL</span><span class="si">}</span><span class="w"> </span><span class="o">=</span>~<span class="w"> </span>.*<span class="s2">&quot;.tar.gz&quot;</span><span class="w"> </span><span class="o">]]</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<span class="w">    </span><span class="nb">cd</span><span class="w"> </span>/scratch/<span class="p">;</span>
+
+<span class="w">    </span><span class="c1"># 如果本地有檔案，就跳過 wget的部分</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">[</span><span class="w"> </span>-f<span class="w"> </span><span class="s2">&quot;conda-channel.tar.gz&quot;</span><span class="w"> </span><span class="o">]</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<span class="w">        </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Detected local conda-channel.tar.gz, skipping download...&quot;</span>
+<span class="w">    </span><span class="k">else</span>
+<span class="w">        </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Downloading conda-channel from remote...&quot;</span>
+<span class="w">        </span>wget<span class="w"> </span>-O<span class="w"> </span>conda-channel.tar.gz<span class="w"> </span>--progress<span class="o">=</span>dot:mega<span class="w"> </span><span class="si">${</span><span class="nv">VAI_CONDA_CHANNEL</span><span class="si">}</span><span class="p">;</span>
+<span class="w">    </span><span class="k">fi</span>
+
+<span class="w">    </span>tar<span class="w"> </span>-xzvf<span class="w"> </span>conda-channel.tar.gz<span class="p">;</span>
+<span class="w">    </span><span class="nb">export</span><span class="w"> </span><span class="nv">VAI_CONDA_CHANNEL</span><span class="o">=</span>file:///scratch/conda-channel<span class="p">;</span>
+<span class="k">fi</span>
+</code></pre></div></td></tr></table></div>
+
+<p>理論上做到這邊，就可以避開<code>Multi-download failed</code>的錯誤，但是這個壓縮檔中好像只含有 Xilinx 自己的安裝包，沒有 python、pandas 這些東西。而這些東西腳本應該會到Anaconda做安裝的動作。</p>
+<p>但是筆者這邊不知道是不是因為 Anaconda 的服務條款對雲端機房 IP 有所限制所以被 Anaconda 給擋住了(回傳 403 Forbidden)。筆者不知道本地會不會有這些問題，所以將處理過程一併丟上來。</p>
+<hr>
+<h3>步驟 2 : 解決 403 Forbidden 的問題</h3>
+<p>這邊主要是為了解決 403 Forbidden 的問題。修改腳本邏輯：<strong>優先使用本地檔案</strong>，並<strong>強制切換到 Conda-Forge</strong>。</p>
+<p>開啟 <code>docker/common/install_torch.sh</code>，並找到腳本最後執行 <code>mamba env create</code> 的部分，<strong>替換與新增</strong>以下 code：</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span>
+<span class="normal">21</span>
+<span class="normal">22</span>
+<span class="normal">23</span>
+<span class="normal">24</span>
+<span class="normal">25</span>
+<span class="normal">26</span>
+<span class="normal">27</span>
+<span class="normal">28</span>
+<span class="normal">29</span>
+<span class="normal">30</span>
+<span class="normal">31</span>
+<span class="normal">32</span>
+<span class="normal">33</span>
+<span class="normal">34</span>
+<span class="normal">35</span>
+<span class="normal">36</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="c1"># ---------------------------------------------------------</span>
+<span class="c1"># 1. 準備 YAML 檔 (修正 source)</span>
+<span class="c1"># ---------------------------------------------------------</span>
+cp<span class="w"> </span>/scratch/gpu_conda/vitis-ai-pytorch.yml<span class="w"> </span>/tmp/build_env.yml
+
+<span class="c1"># 刪除含有 defaults 的行 </span>
+<span class="c1"># ( Anaconda 官方源，應該是造成 403 Forbidden 的元兇? )</span>
+sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;/- defaults/d&#39;</span><span class="w"> </span>/tmp/build_env.yml
+
+<span class="c1"># 加入 conda-forge (用來下載 Python 與套件)</span>
+<span class="k">if</span><span class="w"> </span>!<span class="w"> </span>grep<span class="w"> </span>-q<span class="w"> </span><span class="s2">&quot;conda-forge&quot;</span><span class="w"> </span>/tmp/build_env.yml<span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<span class="w">    </span>sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;/channels:/a \  - conda-forge&#39;</span><span class="w"> </span>/tmp/build_env.yml
+<span class="k">fi</span>
+
+<span class="c1"># ---------------------------------------------------------</span>
+<span class="c1"># 2. 混合設定檔</span>
+<span class="c1"># ---------------------------------------------------------</span>
+<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;channels:&quot;</span><span class="w"> </span>&gt;<span class="w"> </span>/tmp/hybrid_condarc
+<span class="c1"># 第一優先：本地 Xilinx 倉庫 (讀取 /scratch 下的解壓檔)</span>
+<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;  - file:///scratch/conda-channel&quot;</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>/tmp/hybrid_condarc
+<span class="c1"># 第二優先：社群倉庫 (下載 Python 用，不會擋 GCP IP)</span>
+<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;  - conda-forge&quot;</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>/tmp/hybrid_condarc
+<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;channel_priority: flexible&quot;</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>/tmp/hybrid_condarc
+
+<span class="c1"># 強制覆蓋系統設定，防止 Docker 偷讀預設值</span>
+<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Overwriting system config for Hybrid Mode...&quot;</span>
+sudo<span class="w"> </span>cp<span class="w"> </span>/tmp/hybrid_condarc<span class="w"> </span>/opt/vitis_ai/conda/.condarc
+cp<span class="w"> </span>/tmp/hybrid_condarc<span class="w"> </span>/home/vitis-ai-user/.condarc
+
+<span class="c1"># ---------------------------------------------------------</span>
+<span class="c1"># 3.安裝</span>
+<span class="c1"># ---------------------------------------------------------</span>
+<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Starting installation&quot;</span>
+
+mamba<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-v<span class="w"> </span>-f<span class="w"> </span>/tmp/build_env.yml<span class="w"> </span><span class="se">\</span>
+...
+</code></pre></div></td></tr></table></div>
+
+<hr>
+<h3>步驟 3 : 清理空間與編譯</h3>
+<p>為了避免 <code>No space left on device</code>，可以在編譯前清理舊的快取。</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="c1"># 1. 清理 Docker 快取 (釋放 Inodes 與空間)</span>
+sudo<span class="w"> </span>systemctl<span class="w"> </span>restart<span class="w"> </span>docker
+docker<span class="w"> </span>system<span class="w"> </span>prune<span class="w"> </span>-a<span class="w"> </span>-f
+docker<span class="w"> </span>builder<span class="w"> </span>prune<span class="w"> </span>--all<span class="w"> </span>--force
+
+<span class="c1"># 2. 使用 tmux 防止斷線 ( 可用可不用 )</span>
+tmux
+
+<span class="c1"># 3. 執行編譯 (指定 GPU 與 PyTorch)</span>
+<span class="nb">cd</span><span class="w"> </span>~/Vitis-AI/docker
+./docker_build.sh<span class="w"> </span>-t<span class="w"> </span>gpu<span class="w"> </span>-f<span class="w"> </span>pytorch
+</code></pre></div></td></tr></table></div>
+
+<h3>步驟 4 : 執行</h3>
+<p>在完成上述過程之後，接下來透過 <code>docker images</code> 查詢建立的 image 檔案名稱，因為名字可能不是 <code>xilinx/vitis-ai-pytorch-gpu</code> ，所以需要另外確認。
+接著就執行腳本 docker_run 就可以了。( 如果未安裝 nvidia-container-toolkit 可能會無法啟動 )</p>
+<p>筆者目前執行過量化以及編譯看起來應該沒問題 ?</p>
+<h3>補充 : 安裝 nvidia-container-toolkit 出現問題</h3>
+<p>不知道是不是作業系統的關係，筆者使用 Ubuntu 22.04 LTS 安裝時會跳出 Error :</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code>E:<span class="w"> </span>Unable<span class="w"> </span>to<span class="w"> </span>locate<span class="w"> </span>package<span class="w"> </span>nvidia-container-toolkit
+</code></pre></div></td></tr></table></div>
+
+<p>這邊提供在網路上查到的方法 : </p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span></pre></div></td><td class="code"><div><pre><span></span><code>wget<span class="w"> </span>https://nvidia.github.io/nvidia-docker/gpgkey<span class="w"> </span>--no-check-certificate
+
+sudo<span class="w"> </span>apt-key<span class="w"> </span>add<span class="w"> </span>gpgkey
+
+<span class="nv">distribution</span><span class="o">=</span><span class="k">$(</span>.<span class="w"> </span>/etc/os-release<span class="p">;</span><span class="nb">echo</span><span class="w"> </span><span class="nv">$ID$VERSION_ID</span><span class="k">)</span>
+
+curl<span class="w"> </span>-s<span class="w"> </span>-L<span class="w"> </span>https://nvidia.github.io/nvidia-docker/<span class="nv">$distribution</span>/nvidia-docker.list<span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/apt/sources.list.d/nvidia-docker.list
+
+sudo<span class="w"> </span>apt-get<span class="w"> </span>update
+
+sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>-y<span class="w"> </span>nvidia-container-toolkit
+</code></pre></div></td></tr></table></div>
+
+<p><a href="https://github.com/NVIDIA/nvidia-docker/issues/1238">參考來源</a></p>
+        
+        <div class="end-mark">
+            <span>·</span><span>·</span><span>·</span>
+        </div>
+    </div>
+
+    <div class="post-footer">
+        <div class="post-tags">
+            <a href="./tag/debug.html" class="tag">#debug</a>
+            <a href="./tag/vitis-ai.html" class="tag">#vitis-ai</a>
+        </div>
+
+        <div class="author-bio" onclick="window.location.href='./pages/about'" style="cursor: pointer">
+            <div class="author-avatar">
+                <img src="./theme/images/profile.jpg" alt="Chia Yuan">
+            </div>
+            <div class="author-info">
+                <h4>Chia Yuan</h4>
+                <p>A Nobody who loves to try different things.</p>
+            </div>
+        </div>
+
+        <div id="comments-section" class="comments-section">
+            <h3>留言板</h3>
+            
+            <div id="comment-list" class="comment-list">
+                <p class="loading-text">載入留言中...</p>
+            </div>
+
+            <form id="comment-form" class="comment-form">
+                <input type="text" id="name" placeholder="暱稱" required class="comment-input">
+                <textarea id="content" placeholder="寫下你的留言..." required class="comment-textarea"></textarea>
+                <button type="submit" class="comment-submit-btn">送出留言</button>
+            </form>
+        </div>
+
+        <div class="post-navigation">
+        </div>
+    </div>
+</article>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp } 
+    from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+  // 1. 貼上你的 Firebase Config
+  // 請到 Firebase Console > Project Settings > General > Your apps 複製設定
+  const firebaseConfig = {
+    apiKey: "AIzaSyDwGcqOZctTprEDddbGKKid7dgu4lOCb2Y",
+    authDomain: "nobody-s-blog-comment.firebaseapp.com",
+    projectId: "nobody-s-blog-comment",
+    storageBucket: "nobody-s-blog-comment.firebasestorage.app",
+    messagingSenderId: "1085772418942",
+    appId: "1:1085772418942:web:00f337e41831f8efeaed2f",
+    measurementId: "G-P3PBN9CLRP"
+  };
+
+  // 2. 初始化
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  
+  // 取得目前文章的唯一識別 (Slug)
+  const articleSlug = "vitis-ai cuda Multi-download failed"; 
+
+  const commentsRef = collection(db, "comments");
+  const q = query(
+      commentsRef, 
+      where("slug", "==", articleSlug), 
+      orderBy("createdAt", "desc")
+  );
+
+  // 3. 監聽留言
+  const list = document.getElementById("comment-list");
+  onSnapshot(q, (snapshot) => {
+      let html = "";
+      if (snapshot.empty) {
+          html = "<p class='no-comments'>目前還沒有留言，搶頭香！</p>";
+      } else {
+          snapshot.forEach((doc) => {
+              const data = doc.data();
+              const name = data.name ? data.name.replace(/</g, "&lt;") : "匿名"; 
+              const content = data.content ? data.content.replace(/</g, "&lt;") : "";
+              const date = data.createdAt ? new Date(data.createdAt.seconds * 1000).toLocaleString() : '剛剛';
+              
+              html += `
+                  <div class="comment-item">
+                      <div class="comment-header">
+                          <span class="comment-author">${name}</span>
+                          <span class="comment-date">${date}</span>
+                      </div>
+                      <p class="comment-content">${content}</p>
+                  </div>
+              `;
+          });
+      }
+      list.innerHTML = html;
+  });
+
+  // 4. 送出留言
+  const form = document.getElementById("comment-form");
+  form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("name").value;
+      const content = document.getElementById("content").value;
+      const btn = form.querySelector("button");
+
+      if(!name || !content) return;
+
+      btn.disabled = true;
+      btn.innerText = "送出中...";
+
+      try {
+          await addDoc(commentsRef, {
+              slug: articleSlug,
+              name: name,
+              content: content,
+              createdAt: serverTimestamp()
+          });
+          form.reset(); 
+      } catch (error) {
+          console.error("Error adding comment: ", error);
+          alert("留言失敗，請檢查網路設定或 Firebase Config");
+      } finally {
+          btn.disabled = false;
+          btn.innerText = "送出留言";
+      }
+  });
+</script>
+    </main>
+
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <p class="motto">在縫隙中撿拾光影</p>
+            <p class="copyright">&copy;  Chia Yuan. Powered by <a href="https://getpelican.com/">Pelican</a>.</p>
+            <a href="#" class="back-to-top">↑</a>
+        </div>
+    </footer>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Smart Header Logic
+            let lastScrollTop = 0;
+            const header = document.querySelector('.site-header');
+            const scrollThreshold = 100; // Minimum scroll before hiding
+
+            window.addEventListener('scroll', function() {
+                let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                
+                if (scrollTop > lastScrollTop && scrollTop > scrollThreshold) {
+                    // Scroll Down
+                    header.classList.add('hidden');
+                } else {
+                    // Scroll Up
+                    header.classList.remove('hidden');
+                }
+                lastScrollTop = scrollTop <= 0 ? 0 : scrollTop; // For Mobile or negative scrolling
+            });
+
+            // Nav Background Logic
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                const bgUrl = link.getAttribute('data-bg');
+                if (bgUrl) {
+                    const bgDiv = link.querySelector('.nav-bg');
+                    if (bgDiv) {
+                        bgDiv.style.backgroundImage = `url(${bgUrl})`;
+                    }
+                }
+            });
+
+            // Copy Code Button Logic
+            document.querySelectorAll('.highlight').forEach(block => {
+                // Determine the code content to copy
+                // If line numbers are present (table layout)
+                let codeText = '';
+                const codeTd = block.querySelector('td.code');
+                if (codeTd) {
+                    // It's a table with line numbers, copy from the code cell
+                     // Use innerText but filtering out extra newlines might be needed depending on browser
+                    // Actually, getting the raw text from <pre> inside td.code is safest
+                    const pre = codeTd.querySelector('pre');
+                    if (pre) codeText = pre.innerText;
+                } else {
+                    // No line numbers, just a pre block
+                    codeText = block.innerText;
+                }
+
+                if (!codeText) return; // Skip if empty
+
+                // Create Button
+                const button = document.createElement('button');
+                button.className = 'copy-code-btn';
+                button.innerHTML = '<i class="far fa-copy"></i>'; // FontAwesome icon
+                button.title = 'Copy to clipboard';
+
+                // Add Button to Block
+                // We need the block to be relative positioned
+                block.style.position = 'relative';
+                block.appendChild(button);
+
+                // Click Event
+                button.addEventListener('click', () => {
+                    navigator.clipboard.writeText(codeText).then(() => {
+                        // Success Feedback
+                        const originalHtml = button.innerHTML;
+                        button.innerHTML = '<i class="fas fa-check"></i>';
+                        button.classList.add('copied');
+                        setTimeout(() => {
+                            button.innerHTML = originalHtml;
+                            button.classList.remove('copied');
+                        }, 2000);
+                    }).catch(err => {
+                        console.error('Failed to copy:', err);
+                        button.innerHTML = 'Error';
+                    });
+                });
+            });
+        });
+    </script>
+</body>
+</html>

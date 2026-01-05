@@ -1,5 +1,239 @@
 <?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom"><title>Nobody's Blog - Programming</title><link href="https://blog.nobodyorz.me/" rel="alternate"/><link href="https://blog.nobodyorz.me/feeds/programming.atom.xml" rel="self"/><id>https://blog.nobodyorz.me/</id><updated>2025-11-25T23:54:00+08:00</updated><entry><title>Dummy Post #2</title><link href="https://blog.nobodyorz.me/dummy-post-2.html" rel="alternate"/><published>2025-11-25T23:54:00+08:00</published><updated>2025-11-25T23:54:00+08:00</updated><author><name>Chia Yuan</name></author><id>tag:blog.nobodyorz.me,2025-11-25:/dummy-post-2.html</id><summary type="html">&lt;p&gt;這是一篇 Dummy Post #2 的測試文章摘要。這裡會顯示文章的前幾行內容，讓讀者快速了解文章的主題。&lt;/p&gt;</summary><content type="html">&lt;h1&gt;Dummy Post #2&lt;/h1&gt;
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Nobody's Blog - Programming</title><link href="https://blog.nobodyorz.me/" rel="alternate"/><link href="https://blog.nobodyorz.me/feeds/programming.atom.xml" rel="self"/><id>https://blog.nobodyorz.me/</id><updated>2026-01-05T18:11:00+08:00</updated><entry><title>Vitis-AI cuda-gpu Debug 過程記錄</title><link href="https://blog.nobodyorz.me/vitis-ai%20cuda%20Multi-download%20failed.html" rel="alternate"/><published>2026-01-05T18:11:00+08:00</published><updated>2026-01-05T18:11:00+08:00</updated><author><name>Chia Yuan</name></author><id>tag:blog.nobodyorz.me,2026-01-05:/vitis-ai cuda Multi-download failed.html</id><summary type="html">&lt;p&gt;紀錄 Vitis-ai cuda-gpu 的 debug 經歷，作為筆記之外也提供參考。&lt;/p&gt;</summary><content type="html">&lt;h1&gt;Vitis-AI cuda-gpu 修正&lt;/h1&gt;
+&lt;p&gt;主要是在實行 docker_build 腳本時遇到&lt;code&gt;Multi-download failed&lt;/code&gt;的錯誤，經過爬文之後發現不知道是conda還是mamba的版本過舊導致的錯誤?
+在 AMD 的論壇發現這個錯誤也有許多人反映，但是上面提供的解決辦法大多都是額外拉非官方的 docker container。&lt;/p&gt;
+&lt;p&gt;我採用的策略是事先下載要求的壓縮檔，並配合 &lt;strong&gt;Conda-Forge&lt;/strong&gt; 安裝 Python 套件(避開官方)。&lt;/p&gt;
+&lt;p&gt;( 本篇主要是專注在 debug 的部分，至於詳細安裝過程筆者參考 &lt;a href="https://www.youtube.com/watch?v=5JM5hLVyfyU&amp;amp;t=1440s"&gt;此 youtube 影片&lt;/a&gt; )&lt;/p&gt;
+&lt;h3&gt;配置&lt;/h3&gt;
+&lt;p&gt;筆者是在 gcp 上租借 VM 來使用，配置如下 : &lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;區域 : us-central1(愛荷華州)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;GPU 類型 : NVIDIA T4，1 顆&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;機器為 N1 系列，n1-standard-8 (8 vCPU，四核心，30 G 記憶體)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;作業系統 : Ubuntu Accelerator Optimized，版本為 22.04 LTS with 580 nvidia version&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;100 G disk&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h3&gt;步驟 1：手動準備關鍵檔案&lt;/h3&gt;
+&lt;p&gt;與其讓 Docker 在不穩定的網路中下載，不如先手動下載好並掛載進去。
+&lt;img alt="image" src="https://blog.nobodyorz.me/blog-image/20260105.png"&gt;
+在 docker_build 這個腳本當中，就可以發現運行時抓取的位置，所以這邊可以直接對 conda-channel 做下載的動作(wget)。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;下載 Vitis-AI Conda Channel&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;檔案名稱&lt;/strong&gt;：&lt;code&gt;conda-channel-3.5.0.tar.gz&lt;/code&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;下載位置&lt;/strong&gt;：https://www.xilinx.com/bin/public/openDownload?filename=conda-channel-3.5.0.tar.gz&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;放置路徑&lt;/strong&gt;：&lt;code&gt;~/Vitis-AI/docker/conda/conda-channel.tar.gz&lt;/code&gt; (請改名為此，方便腳本讀取)&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;完整指令為 : &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;table class="highlighttable"&gt;&lt;tr&gt;&lt;td class="linenos"&gt;&lt;div class="linenodiv"&gt;&lt;pre&gt;&lt;span class="normal"&gt;1&lt;/span&gt;
+&lt;span class="normal"&gt;2&lt;/span&gt;
+&lt;span class="normal"&gt;3&lt;/span&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/td&gt;&lt;td class="code"&gt;&lt;div&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;wget&lt;span class="w"&gt; &lt;/span&gt;-O&lt;span class="w"&gt; &lt;/span&gt;conda-channel-3.5.0.tar.gz&lt;span class="w"&gt; &lt;/span&gt;https://www.xilinx.com/bin/public/openDownload?filename&lt;span class="o"&gt;=&lt;/span&gt;conda-channel-3.5.0.tar.gz
+
+mv&lt;span class="w"&gt; &lt;/span&gt;conda-channel-3.5.0.tar.gz&lt;span class="w"&gt; &lt;/span&gt;~/Vitis-AI/docker/conda/conda-channel.tar.gz
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;然後修改 &lt;code&gt;docker/common/install_torch.sh&lt;/code&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;找到原本 &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;table class="highlighttable"&gt;&lt;tr&gt;&lt;td class="linenos"&gt;&lt;div class="linenodiv"&gt;&lt;pre&gt;&lt;span class="normal"&gt;1&lt;/span&gt;
+&lt;span class="normal"&gt;2&lt;/span&gt;
+&lt;span class="normal"&gt;3&lt;/span&gt;
+&lt;span class="normal"&gt;4&lt;/span&gt;
+&lt;span class="normal"&gt;5&lt;/span&gt;
+&lt;span class="normal"&gt;6&lt;/span&gt;
+&lt;span class="normal"&gt;7&lt;/span&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/td&gt;&lt;td class="code"&gt;&lt;div&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="k"&gt;if&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;[[&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;VAI_CONDA_CHANNEL&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;~&lt;span class="w"&gt; &lt;/span&gt;.*&lt;span class="s2"&gt;&amp;quot;tar.gz&amp;quot;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;]]&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;then&lt;/span&gt;
+&lt;span class="w"&gt;   &lt;/span&gt;&lt;span class="nb"&gt;cd&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;/scratch/&lt;span class="p"&gt;;&lt;/span&gt;
+
+&lt;span class="w"&gt;   &lt;/span&gt;wget&lt;span class="w"&gt; &lt;/span&gt;-O&lt;span class="w"&gt; &lt;/span&gt;conda-channel.tar.gz&lt;span class="w"&gt; &lt;/span&gt;--progress&lt;span class="o"&gt;=&lt;/span&gt;dot:mega&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;VAI_CONDA_CHANNEL&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="w"&gt;   &lt;/span&gt;tar&lt;span class="w"&gt; &lt;/span&gt;-xzvf&lt;span class="w"&gt; &lt;/span&gt;conda-channel.tar.gz&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="w"&gt;   &lt;/span&gt;&lt;span class="nb"&gt;export&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;VAI_CONDA_CHANNEL&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;file:///scratch/conda-channel&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="k"&gt;fi&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/div&gt;
+
+&lt;p&gt;的地方，換上：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;table class="highlighttable"&gt;&lt;tr&gt;&lt;td class="linenos"&gt;&lt;div class="linenodiv"&gt;&lt;pre&gt;&lt;span class="normal"&gt; 1&lt;/span&gt;
+&lt;span class="normal"&gt; 2&lt;/span&gt;
+&lt;span class="normal"&gt; 3&lt;/span&gt;
+&lt;span class="normal"&gt; 4&lt;/span&gt;
+&lt;span class="normal"&gt; 5&lt;/span&gt;
+&lt;span class="normal"&gt; 6&lt;/span&gt;
+&lt;span class="normal"&gt; 7&lt;/span&gt;
+&lt;span class="normal"&gt; 8&lt;/span&gt;
+&lt;span class="normal"&gt; 9&lt;/span&gt;
+&lt;span class="normal"&gt;10&lt;/span&gt;
+&lt;span class="normal"&gt;11&lt;/span&gt;
+&lt;span class="normal"&gt;12&lt;/span&gt;
+&lt;span class="normal"&gt;13&lt;/span&gt;
+&lt;span class="normal"&gt;14&lt;/span&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/td&gt;&lt;td class="code"&gt;&lt;div&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="k"&gt;if&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;[[&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;VAI_CONDA_CHANNEL&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;~&lt;span class="w"&gt; &lt;/span&gt;.*&lt;span class="s2"&gt;&amp;quot;.tar.gz&amp;quot;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;]]&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;then&lt;/span&gt;
+&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="nb"&gt;cd&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;/scratch/&lt;span class="p"&gt;;&lt;/span&gt;
+
+&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="c1"&gt;# 如果本地有檔案，就跳過 wget的部分&lt;/span&gt;
+&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="k"&gt;if&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;-f&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;conda-channel.tar.gz&amp;quot;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;then&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="nb"&gt;echo&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;Detected local conda-channel.tar.gz, skipping download...&amp;quot;&lt;/span&gt;
+&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="k"&gt;else&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;&lt;span class="nb"&gt;echo&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;Downloading conda-channel from remote...&amp;quot;&lt;/span&gt;
+&lt;span class="w"&gt;        &lt;/span&gt;wget&lt;span class="w"&gt; &lt;/span&gt;-O&lt;span class="w"&gt; &lt;/span&gt;conda-channel.tar.gz&lt;span class="w"&gt; &lt;/span&gt;--progress&lt;span class="o"&gt;=&lt;/span&gt;dot:mega&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;VAI_CONDA_CHANNEL&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="k"&gt;fi&lt;/span&gt;
+
+&lt;span class="w"&gt;    &lt;/span&gt;tar&lt;span class="w"&gt; &lt;/span&gt;-xzvf&lt;span class="w"&gt; &lt;/span&gt;conda-channel.tar.gz&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="w"&gt;    &lt;/span&gt;&lt;span class="nb"&gt;export&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;VAI_CONDA_CHANNEL&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;file:///scratch/conda-channel&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="k"&gt;fi&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/div&gt;
+
+&lt;p&gt;理論上做到這邊，就可以避開&lt;code&gt;Multi-download failed&lt;/code&gt;的錯誤，但是這個壓縮檔中好像只含有 Xilinx 自己的安裝包，沒有 python、pandas 這些東西。而這些東西腳本應該會到Anaconda做安裝的動作。&lt;/p&gt;
+&lt;p&gt;但是筆者這邊不知道是不是因為 Anaconda 的服務條款對雲端機房 IP 有所限制所以被 Anaconda 給擋住了(回傳 403 Forbidden)。筆者不知道本地會不會有這些問題，所以將處理過程一併丟上來。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h3&gt;步驟 2 : 解決 403 Forbidden 的問題&lt;/h3&gt;
+&lt;p&gt;這邊主要是為了解決 403 Forbidden 的問題。修改腳本邏輯：&lt;strong&gt;優先使用本地檔案&lt;/strong&gt;，並&lt;strong&gt;強制切換到 Conda-Forge&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;開啟 &lt;code&gt;docker/common/install_torch.sh&lt;/code&gt;，並找到腳本最後執行 &lt;code&gt;mamba env create&lt;/code&gt; 的部分，&lt;strong&gt;替換與新增&lt;/strong&gt;以下 code：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;table class="highlighttable"&gt;&lt;tr&gt;&lt;td class="linenos"&gt;&lt;div class="linenodiv"&gt;&lt;pre&gt;&lt;span class="normal"&gt; 1&lt;/span&gt;
+&lt;span class="normal"&gt; 2&lt;/span&gt;
+&lt;span class="normal"&gt; 3&lt;/span&gt;
+&lt;span class="normal"&gt; 4&lt;/span&gt;
+&lt;span class="normal"&gt; 5&lt;/span&gt;
+&lt;span class="normal"&gt; 6&lt;/span&gt;
+&lt;span class="normal"&gt; 7&lt;/span&gt;
+&lt;span class="normal"&gt; 8&lt;/span&gt;
+&lt;span class="normal"&gt; 9&lt;/span&gt;
+&lt;span class="normal"&gt;10&lt;/span&gt;
+&lt;span class="normal"&gt;11&lt;/span&gt;
+&lt;span class="normal"&gt;12&lt;/span&gt;
+&lt;span class="normal"&gt;13&lt;/span&gt;
+&lt;span class="normal"&gt;14&lt;/span&gt;
+&lt;span class="normal"&gt;15&lt;/span&gt;
+&lt;span class="normal"&gt;16&lt;/span&gt;
+&lt;span class="normal"&gt;17&lt;/span&gt;
+&lt;span class="normal"&gt;18&lt;/span&gt;
+&lt;span class="normal"&gt;19&lt;/span&gt;
+&lt;span class="normal"&gt;20&lt;/span&gt;
+&lt;span class="normal"&gt;21&lt;/span&gt;
+&lt;span class="normal"&gt;22&lt;/span&gt;
+&lt;span class="normal"&gt;23&lt;/span&gt;
+&lt;span class="normal"&gt;24&lt;/span&gt;
+&lt;span class="normal"&gt;25&lt;/span&gt;
+&lt;span class="normal"&gt;26&lt;/span&gt;
+&lt;span class="normal"&gt;27&lt;/span&gt;
+&lt;span class="normal"&gt;28&lt;/span&gt;
+&lt;span class="normal"&gt;29&lt;/span&gt;
+&lt;span class="normal"&gt;30&lt;/span&gt;
+&lt;span class="normal"&gt;31&lt;/span&gt;
+&lt;span class="normal"&gt;32&lt;/span&gt;
+&lt;span class="normal"&gt;33&lt;/span&gt;
+&lt;span class="normal"&gt;34&lt;/span&gt;
+&lt;span class="normal"&gt;35&lt;/span&gt;
+&lt;span class="normal"&gt;36&lt;/span&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/td&gt;&lt;td class="code"&gt;&lt;div&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="c1"&gt;# ---------------------------------------------------------&lt;/span&gt;
+&lt;span class="c1"&gt;# 1. 準備 YAML 檔 (修正 source)&lt;/span&gt;
+&lt;span class="c1"&gt;# ---------------------------------------------------------&lt;/span&gt;
+cp&lt;span class="w"&gt; &lt;/span&gt;/scratch/gpu_conda/vitis-ai-pytorch.yml&lt;span class="w"&gt; &lt;/span&gt;/tmp/build_env.yml
+
+&lt;span class="c1"&gt;# 刪除含有 defaults 的行 &lt;/span&gt;
+&lt;span class="c1"&gt;# ( Anaconda 官方源，應該是造成 403 Forbidden 的元兇? )&lt;/span&gt;
+sed&lt;span class="w"&gt; &lt;/span&gt;-i&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;/- defaults/d&amp;#39;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;/tmp/build_env.yml
+
+&lt;span class="c1"&gt;# 加入 conda-forge (用來下載 Python 與套件)&lt;/span&gt;
+&lt;span class="k"&gt;if&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;!&lt;span class="w"&gt; &lt;/span&gt;grep&lt;span class="w"&gt; &lt;/span&gt;-q&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;conda-forge&amp;quot;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;/tmp/build_env.yml&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;then&lt;/span&gt;
+&lt;span class="w"&gt;    &lt;/span&gt;sed&lt;span class="w"&gt; &lt;/span&gt;-i&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;/channels:/a \  - conda-forge&amp;#39;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;/tmp/build_env.yml
+&lt;span class="k"&gt;fi&lt;/span&gt;
+
+&lt;span class="c1"&gt;# ---------------------------------------------------------&lt;/span&gt;
+&lt;span class="c1"&gt;# 2. 混合設定檔&lt;/span&gt;
+&lt;span class="c1"&gt;# ---------------------------------------------------------&lt;/span&gt;
+&lt;span class="nb"&gt;echo&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;channels:&amp;quot;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&amp;gt;&lt;span class="w"&gt; &lt;/span&gt;/tmp/hybrid_condarc
+&lt;span class="c1"&gt;# 第一優先：本地 Xilinx 倉庫 (讀取 /scratch 下的解壓檔)&lt;/span&gt;
+&lt;span class="nb"&gt;echo&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;  - file:///scratch/conda-channel&amp;quot;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&amp;gt;&amp;gt;&lt;span class="w"&gt; &lt;/span&gt;/tmp/hybrid_condarc
+&lt;span class="c1"&gt;# 第二優先：社群倉庫 (下載 Python 用，不會擋 GCP IP)&lt;/span&gt;
+&lt;span class="nb"&gt;echo&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;  - conda-forge&amp;quot;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&amp;gt;&amp;gt;&lt;span class="w"&gt; &lt;/span&gt;/tmp/hybrid_condarc
+&lt;span class="nb"&gt;echo&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;channel_priority: flexible&amp;quot;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&amp;gt;&amp;gt;&lt;span class="w"&gt; &lt;/span&gt;/tmp/hybrid_condarc
+
+&lt;span class="c1"&gt;# 強制覆蓋系統設定，防止 Docker 偷讀預設值&lt;/span&gt;
+&lt;span class="nb"&gt;echo&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;Overwriting system config for Hybrid Mode...&amp;quot;&lt;/span&gt;
+sudo&lt;span class="w"&gt; &lt;/span&gt;cp&lt;span class="w"&gt; &lt;/span&gt;/tmp/hybrid_condarc&lt;span class="w"&gt; &lt;/span&gt;/opt/vitis_ai/conda/.condarc
+cp&lt;span class="w"&gt; &lt;/span&gt;/tmp/hybrid_condarc&lt;span class="w"&gt; &lt;/span&gt;/home/vitis-ai-user/.condarc
+
+&lt;span class="c1"&gt;# ---------------------------------------------------------&lt;/span&gt;
+&lt;span class="c1"&gt;# 3.安裝&lt;/span&gt;
+&lt;span class="c1"&gt;# ---------------------------------------------------------&lt;/span&gt;
+&lt;span class="nb"&gt;echo&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;Starting installation&amp;quot;&lt;/span&gt;
+
+mamba&lt;span class="w"&gt; &lt;/span&gt;env&lt;span class="w"&gt; &lt;/span&gt;create&lt;span class="w"&gt; &lt;/span&gt;-v&lt;span class="w"&gt; &lt;/span&gt;-f&lt;span class="w"&gt; &lt;/span&gt;/tmp/build_env.yml&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="se"&gt;\&lt;/span&gt;
+...
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/div&gt;
+
+&lt;hr&gt;
+&lt;h3&gt;步驟 3 : 清理空間與編譯&lt;/h3&gt;
+&lt;p&gt;為了避免 &lt;code&gt;No space left on device&lt;/code&gt;，可以在編譯前清理舊的快取。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;table class="highlighttable"&gt;&lt;tr&gt;&lt;td class="linenos"&gt;&lt;div class="linenodiv"&gt;&lt;pre&gt;&lt;span class="normal"&gt; 1&lt;/span&gt;
+&lt;span class="normal"&gt; 2&lt;/span&gt;
+&lt;span class="normal"&gt; 3&lt;/span&gt;
+&lt;span class="normal"&gt; 4&lt;/span&gt;
+&lt;span class="normal"&gt; 5&lt;/span&gt;
+&lt;span class="normal"&gt; 6&lt;/span&gt;
+&lt;span class="normal"&gt; 7&lt;/span&gt;
+&lt;span class="normal"&gt; 8&lt;/span&gt;
+&lt;span class="normal"&gt; 9&lt;/span&gt;
+&lt;span class="normal"&gt;10&lt;/span&gt;
+&lt;span class="normal"&gt;11&lt;/span&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/td&gt;&lt;td class="code"&gt;&lt;div&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;&lt;span class="c1"&gt;# 1. 清理 Docker 快取 (釋放 Inodes 與空間)&lt;/span&gt;
+sudo&lt;span class="w"&gt; &lt;/span&gt;systemctl&lt;span class="w"&gt; &lt;/span&gt;restart&lt;span class="w"&gt; &lt;/span&gt;docker
+docker&lt;span class="w"&gt; &lt;/span&gt;system&lt;span class="w"&gt; &lt;/span&gt;prune&lt;span class="w"&gt; &lt;/span&gt;-a&lt;span class="w"&gt; &lt;/span&gt;-f
+docker&lt;span class="w"&gt; &lt;/span&gt;builder&lt;span class="w"&gt; &lt;/span&gt;prune&lt;span class="w"&gt; &lt;/span&gt;--all&lt;span class="w"&gt; &lt;/span&gt;--force
+
+&lt;span class="c1"&gt;# 2. 使用 tmux 防止斷線 ( 可用可不用 )&lt;/span&gt;
+tmux
+
+&lt;span class="c1"&gt;# 3. 執行編譯 (指定 GPU 與 PyTorch)&lt;/span&gt;
+&lt;span class="nb"&gt;cd&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;~/Vitis-AI/docker
+./docker_build.sh&lt;span class="w"&gt; &lt;/span&gt;-t&lt;span class="w"&gt; &lt;/span&gt;gpu&lt;span class="w"&gt; &lt;/span&gt;-f&lt;span class="w"&gt; &lt;/span&gt;pytorch
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/div&gt;
+
+&lt;h3&gt;步驟 4 : 執行&lt;/h3&gt;
+&lt;p&gt;在完成上述過程之後，接下來透過 &lt;code&gt;docker images&lt;/code&gt; 查詢建立的 image 檔案名稱，因為名字可能不是 &lt;code&gt;xilinx/vitis-ai-pytorch-gpu&lt;/code&gt; ，所以需要另外確認。
+接著就執行腳本 docker_run 就可以了。( 如果未安裝 nvidia-container-toolkit 可能會無法啟動 )&lt;/p&gt;
+&lt;p&gt;筆者目前執行過量化以及編譯看起來應該沒問題 ?&lt;/p&gt;
+&lt;h3&gt;補充 : 安裝 nvidia-container-toolkit 出現問題&lt;/h3&gt;
+&lt;p&gt;不知道是不是作業系統的關係，筆者使用 Ubuntu 22.04 LTS 安裝時會跳出 Error :&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;table class="highlighttable"&gt;&lt;tr&gt;&lt;td class="linenos"&gt;&lt;div class="linenodiv"&gt;&lt;pre&gt;&lt;span class="normal"&gt;1&lt;/span&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/td&gt;&lt;td class="code"&gt;&lt;div&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;E:&lt;span class="w"&gt; &lt;/span&gt;Unable&lt;span class="w"&gt; &lt;/span&gt;to&lt;span class="w"&gt; &lt;/span&gt;locate&lt;span class="w"&gt; &lt;/span&gt;package&lt;span class="w"&gt; &lt;/span&gt;nvidia-container-toolkit
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/div&gt;
+
+&lt;p&gt;這邊提供在網路上查到的方法 : &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;table class="highlighttable"&gt;&lt;tr&gt;&lt;td class="linenos"&gt;&lt;div class="linenodiv"&gt;&lt;pre&gt;&lt;span class="normal"&gt; 1&lt;/span&gt;
+&lt;span class="normal"&gt; 2&lt;/span&gt;
+&lt;span class="normal"&gt; 3&lt;/span&gt;
+&lt;span class="normal"&gt; 4&lt;/span&gt;
+&lt;span class="normal"&gt; 5&lt;/span&gt;
+&lt;span class="normal"&gt; 6&lt;/span&gt;
+&lt;span class="normal"&gt; 7&lt;/span&gt;
+&lt;span class="normal"&gt; 8&lt;/span&gt;
+&lt;span class="normal"&gt; 9&lt;/span&gt;
+&lt;span class="normal"&gt;10&lt;/span&gt;
+&lt;span class="normal"&gt;11&lt;/span&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/td&gt;&lt;td class="code"&gt;&lt;div&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;code&gt;wget&lt;span class="w"&gt; &lt;/span&gt;https://nvidia.github.io/nvidia-docker/gpgkey&lt;span class="w"&gt; &lt;/span&gt;--no-check-certificate
+
+sudo&lt;span class="w"&gt; &lt;/span&gt;apt-key&lt;span class="w"&gt; &lt;/span&gt;add&lt;span class="w"&gt; &lt;/span&gt;gpgkey
+
+&lt;span class="nv"&gt;distribution&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="k"&gt;$(&lt;/span&gt;.&lt;span class="w"&gt; &lt;/span&gt;/etc/os-release&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="nb"&gt;echo&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nv"&gt;$ID$VERSION_ID&lt;/span&gt;&lt;span class="k"&gt;)&lt;/span&gt;
+
+curl&lt;span class="w"&gt; &lt;/span&gt;-s&lt;span class="w"&gt; &lt;/span&gt;-L&lt;span class="w"&gt; &lt;/span&gt;https://nvidia.github.io/nvidia-docker/&lt;span class="nv"&gt;$distribution&lt;/span&gt;/nvidia-docker.list&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;|&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;sudo&lt;span class="w"&gt; &lt;/span&gt;tee&lt;span class="w"&gt; &lt;/span&gt;/etc/apt/sources.list.d/nvidia-docker.list
+
+sudo&lt;span class="w"&gt; &lt;/span&gt;apt-get&lt;span class="w"&gt; &lt;/span&gt;update
+
+sudo&lt;span class="w"&gt; &lt;/span&gt;apt-get&lt;span class="w"&gt; &lt;/span&gt;install&lt;span class="w"&gt; &lt;/span&gt;-y&lt;span class="w"&gt; &lt;/span&gt;nvidia-container-toolkit
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;a href="https://github.com/NVIDIA/nvidia-docker/issues/1238"&gt;參考來源&lt;/a&gt;&lt;/p&gt;</content><category term="Programming"/><category term="debug"/><category term="vitis-ai"/></entry><entry><title>Dummy Post #2</title><link href="https://blog.nobodyorz.me/dummy-post-2.html" rel="alternate"/><published>2025-11-25T23:54:00+08:00</published><updated>2025-11-25T23:54:00+08:00</updated><author><name>Chia Yuan</name></author><id>tag:blog.nobodyorz.me,2025-11-25:/dummy-post-2.html</id><summary type="html">&lt;p&gt;這是一篇 Dummy Post #2 的測試文章摘要。這裡會顯示文章的前幾行內容，讓讀者快速了解文章的主題。&lt;/p&gt;</summary><content type="html">&lt;h1&gt;Dummy Post #2&lt;/h1&gt;
 &lt;p&gt;這是一篇自動生成的測試文章。&lt;/p&gt;
 &lt;h2&gt;內容章節&lt;/h2&gt;
 &lt;p&gt;Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. &lt;/p&gt;
