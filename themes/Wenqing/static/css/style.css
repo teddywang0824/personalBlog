@@ -332,6 +332,18 @@ a:hover {
     margin-bottom: 1rem;
 }
 
+/* Links inside post content */
+.post-body a {
+    color: var(--accent-color); /* Make links visible by default */
+    border-bottom: 1px dashed var(--accent-color); /* Subtle underline */
+    padding-bottom: 1px;
+}
+
+.post-body a:hover {
+    border-bottom-style: solid;
+    background-color: rgba(194, 120, 92, 0.1); /* Subtle highlight on hover */
+}
+
 /* Drop Cap */
 .post-body > p:first-of-type::first-letter {
     float: left;
@@ -1049,3 +1061,196 @@ a:hover {
     background-color: #ccc;
     cursor: not-allowed;
 }
+
+/* Code Blocks - Modern Dark Style (One Dark inspired) */
+.highlight {
+    background: #282c34; /* Dark background */
+    color: #abb2bf; /* Light text */
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    position: relative;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+    overflow: hidden; /* Ensure rounded corners clip content */
+}
+
+/* Reset for Code Block internals - FIX GRAY BACKGROUND */
+.highlight pre, 
+.highlight code,
+.highlight .linenos pre,
+.highlight .code pre {
+    background-color: transparent !important;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    color: inherit;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    font-family: inherit;
+    text-shadow: none;
+}
+
+/* Table Layout config */
+.highlight table {
+    width: 100%;
+    border-spacing: 0;
+    border: 0;
+    table-layout: fixed; /* Important for scrolling to work inside cell */
+}
+
+.highlight td {
+    padding: 0;
+    vertical-align: top;
+    border: 0;
+}
+
+/* Line Numbers Column */
+.highlight .linenos {
+    background-color: #2c313a; /* Slightly lighter/different dark for gutter */
+    border-right: 1px solid #3e4451;
+    width: 40px; /* Fixed width or let it shrink, but fixed is safer for alignment */
+    text-align: right;
+    user-select: none;
+    vertical-align: top;
+}
+
+.highlight .linenos pre {
+    padding: 16px 10px 16px 16px !important; 
+    color: #495162;
+}
+
+/* Code Column - FIX SCROLLING */
+.highlight .code {
+    width: 100%; /* Take remaining space */
+    vertical-align: top;
+    overflow: hidden; /* Hide overflow of the cell itself */
+}
+
+.highlight .code pre {
+    padding: 16px !important;
+    overflow-x: auto; /* Enable Horizontal Scroll */
+    white-space: pre; /* Force single line */
+    word-wrap: normal;
+    display: block; /* Ensure it takes width to scroll */
+    width: 100%;
+}
+
+/* Inline Code (Keep distinct light bg for inline text outside blocks) */
+code {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+    font-size: 85%;
+    background-color: rgba(27,31,35,0.05); 
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    color: #c7254e; 
+}
+
+/* Hide inline style for code inside pre (double safety) */
+pre code {
+    background-color: transparent;
+    color: inherit;
+    padding: 0;
+}
+
+/* Copy Button Styling (Dark Theme Compatible) */
+.copy-code-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: rgba(40, 44, 52, 0.8);
+    border: 1px solid #3e4451;
+    border-radius: 6px;
+    color: #abb2bf;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 20;
+    opacity: 0;
+}
+
+.highlight:hover .copy-code-btn {
+    opacity: 1;
+}
+
+.copy-code-btn:hover {
+    background-color: #3e4451;
+    color: #fff;
+    border-color: #5c6370;
+}
+
+.copy-code-btn.copied {
+    border-color: #98c379;
+    color: #98c379;
+}
+
+/* Pygments Syntax Highlighting - One Dark Style */
+.highlight .hll { background-color: #4e4e4e }
+.highlight .c { color: #5c6370; font-style: italic } /* Comment */
+.highlight .err { color: #e06c75 } /* Error */
+.highlight .k { color: #c678dd } /* Keyword - Purple */
+.highlight .o { color: #56b6c2 } /* Operator - Cyan */
+.highlight .cm { color: #5c6370; font-style: italic } /* Comment.Multiline */
+.highlight .cp { color: #5c6370; font-weight: bold } /* Comment.Preproc */
+.highlight .c1 { color: #5c6370; font-style: italic } /* Comment.Single */
+.highlight .cs { color: #5c6370; font-weight: bold; font-style: italic } /* Comment.Special */
+.highlight .gd { color: #e06c75 } /* Generic.Deleted */
+.highlight .ge { font-style: italic } /* Generic.Emph */
+.highlight .gr { color: #e06c75 } /* Generic.Error */
+.highlight .gh { color: #61afef; font-weight: bold } /* Generic.Heading */
+.highlight .gi { color: #98c379 } /* Generic.Inserted */
+.highlight .go { color: #56b6c2 } /* Generic.Output */
+.highlight .gp { color: #56b6c2 } /* Generic.Prompt */
+.highlight .gs { font-weight: bold } /* Generic.Strong */
+.highlight .gu { color: #56b6c2; font-weight: bold } /* Generic.Subheading */
+.highlight .gt { color: #e06c75 } /* Generic.Traceback */
+.highlight .kc { color: #c678dd } /* Keyword.Constant */
+.highlight .kd { color: #c678dd } /* Keyword.Declaration */
+.highlight .kn { color: #c678dd } /* Keyword.Namespace */
+.highlight .kp { color: #c678dd } /* Keyword.Pseudo */
+.highlight .kr { color: #c678dd } /* Keyword.Reserved */
+.highlight .kt { color: #e06c75 } /* Keyword.Type */
+.highlight .m { color: #d19a66 } /* Literal.Number */
+.highlight .s { color: #98c379 } /* Literal.String */
+.highlight .na { color: #e06c75 } /* Name.Attribute */
+.highlight .nb { color: #e5c07b } /* Name.Builtin */
+.highlight .nc { color: #e5c07b } /* Name.Class */
+.highlight .no { color: #d19a66 } /* Name.Constant */
+.highlight .nd { color: #61afef } /* Name.Decorator */
+.highlight .ni { color: #e06c75 } /* Name.Entity */
+.highlight .ne { color: #e06c75 } /* Name.Exception */
+.highlight .nf { color: #61afef } /* Name.Function */
+.highlight .nl { color: #e5c07b } /* Name.Label */
+.highlight .nn { color: #e5c07b } /* Name.Namespace */
+.highlight .nt { color: #e06c75 } /* Name.Tag */
+.highlight .nv { color: #e06c75 } /* Name.Variable */
+.highlight .ow { color: #c678dd } /* Operator.Word */
+.highlight .w { color: #abb2bf } /* Text.Whitespace */
+.highlight .mb { color: #d19a66 } /* Literal.Number.Bin */
+.highlight .mf { color: #d19a66 } /* Literal.Number.Float */
+.highlight .mh { color: #d19a66 } /* Literal.Number.Hex */
+.highlight .mi { color: #d19a66 } /* Literal.Number.Integer */
+.highlight .mo { color: #d19a66 } /* Literal.Number.Oct */
+.highlight .sa { color: #98c379 } /* Literal.String.Affix */
+.highlight .sb { color: #98c379 } /* Literal.String.Backtick */
+.highlight .sc { color: #98c379 } /* Literal.String.Char */
+.highlight .dl { color: #98c379 } /* Literal.String.Delimiter */
+.highlight .sd { color: #98c379 } /* Literal.String.Doc */
+.highlight .s2 { color: #98c379 } /* Literal.String.Double */
+.highlight .se { color: #98c379 } /* Literal.String.Escape */
+.highlight .sh { color: #98c379 } /* Literal.String.Heredoc */
+.highlight .si { color: #98c379 } /* Literal.String.Interpol */
+.highlight .sx { color: #98c379 } /* Literal.String.Other */
+.highlight .sr { color: #98c379 } /* Literal.String.Regex */
+.highlight .s1 { color: #98c379 } /* Literal.String.Single */
+.highlight .ss { color: #98c379 } /* Literal.String.Symbol */
+.highlight .bp { color: #e5c07b } /* Name.Builtin.Pseudo */
+.highlight .fm { color: #61afef } /* Name.Function.Magic */
+.highlight .vc { color: #e06c75 } /* Name.Variable.Class */
+.highlight .vg { color: #e06c75 } /* Name.Variable.Global */
+.highlight .vi { color: #e06c75 } /* Name.Variable.Instance */
+.highlight .vm { color: #e06c75 } /* Name.Variable.Magic */
+.highlight .il { color: #d19a66 } /* Literal.Number.Integer.Long */
